@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA希釈計算ツール（MiSeq用）v2.2</title>
+<meta name="description" content="Qubit測定濃度から、MiSeqシークエンシングに必要なモル濃度(nM)／質量濃度(ng/µL)への希釈水量を計算するツール。">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="titlebar">
+  <h1>DNA希釈計算ツール（MiSeq用）v2.2</h1>
+</header>
+
+<div class="app">
+  <!-- ══ モード Notebook ══ -->
+  <div class="nb mode-nb">
+    <div class="nb-tabs" role="tablist">
+      <button class="nb-tab active" role="tab" data-mode="nm">モル濃度希釈 (nM)</button>
+      <button class="nb-tab" role="tab" data-mode="ng">濃度希釈 (ng/µL)</button>
+    </div>
+
+    <!-- ───────── nM タブ ───────── -->
+    <section class="nb-page" id="page-nm">
+      <fieldset class="lf">
+        <legend>計算パラメータ</legend>
+        <div class="param-grid">
+          <label>ターゲット濃度 (nM):<input type="text" id="nm-target" value="4.0" size="8"></label>
+          <label>サンプル量 (µL):<input type="text" id="nm-sample" value="10.0" size="8"></label>
+          <label>MW per bp (g):<input type="text" id="nm-mw" value="660.0" size="8"></label>
+        </div>
+        <div class="param-grid">
+          <label class="chk"><input type="checkbox" id="nm-common" checked> 共通塩基長を使用:<input type="text" id="nm-bp" value="600" size="8"></label>
+          <label>プリセット:<select id="nm-preset"><option value="-1"></option></select></label>
+          <button type="button" id="nm-preset-mgr">プリセット管理</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="lf">
+        <legend>計算式</legend>
+        <p class="formula-text">ターゲット (pg/µL) = MW_per_bp × 塩基長 × ターゲット(nM) ÷ 1000
+希釈水量 X (µL) = サンプル量 × ( Qubit(ng/µL)×1000 ÷ ターゲット(pg/µL) − 1 )
+半量 = 希釈水量 ÷ 2</p>
+      </fieldset>
+
+      <div class="nb inner-nb" data-input-nb="nm">
+        <div class="nb-tabs">
+          <button type="button" class="nb-tab active" data-input="0">個別入力（列ごとに貼り付け）</button>
+          <button type="button" class="nb-tab" data-input="1">一括入力（タブ区切り）</button>
+        </div>
+        <div class="nb-page" data-input-page="0">
+          <div class="text-cols three">
+            <label>サンプルID（1行1件）<textarea id="nm-ids" rows="10" spellcheck="false"></textarea></label>
+            <label>塩基長 bp（共通時は空でOK）<textarea id="nm-bps" rows="10" spellcheck="false"></textarea></label>
+            <label>Qubit濃度 ng/µL（1行1件）<textarea id="nm-conc" rows="10" spellcheck="false"></textarea></label>
+          </div>
+        </div>
+        <div class="nb-page hidden" data-input-page="1">
+          <label>タブ区切り: サンプルID\t塩基長(bp)\tQubit濃度(ng/µL)　※ヘッダ行は自動スキップ
+            <textarea id="nm-bulk" rows="10" spellcheck="false"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="btnbar">
+        <button type="button" id="nm-calc" class="primary">計算</button>
+        <button type="button" id="nm-clear">クリア</button>
+        <span class="vsep"></span>
+        <button type="button" id="nm-csv">CSV出力</button>
+        <button type="button" id="nm-html">HTMLレポート</button>
+        <button type="button" id="nm-clip">クリップボードにコピー</button>
+        <span class="vsep"></span>
+        <label class="chk"><input type="checkbox" id="nm-strip"> 8連チューブ色分け</label>
+        <span class="vsep"></span>
+        <button type="button" id="nm-demo" class="ghost">テストデータ入力</button>
+      </div>
+
+      <div class="tree-wrap"><table class="tree" id="nm-tree">
+        <thead><tr>
+          <th class="w-id">サンプルID</th><th>塩基長(bp)</th><th>Qubit(ng/µL)</th>
+          <th>ターゲット(pg/µL)</th><th>希釈水量(µL)</th><th>半量(µL)</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- ───────── ng/µL タブ ───────── -->
+    <section class="nb-page hidden" id="page-ng">
+      <fieldset class="lf">
+        <legend>計算パラメータ</legend>
+        <div class="param-grid">
+          <label>ターゲット濃度 (ng/µL):<input type="text" id="ng-target" value="2.0" size="8"></label>
+          <label>サンプル量 (µL):<input type="text" id="ng-sample" value="10.0" size="8"></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="lf">
+        <legend>計算式</legend>
+        <p class="formula-text">希釈水量 X (µL) = サンプル量 × ( Qubit濃度(ng/µL) ÷ ターゲット(ng/µL) − 1 )
+半量 = 希釈水量 ÷ 2</p>
+      </fieldset>
+
+      <div class="nb inner-nb" data-input-nb="ng">
+        <div class="nb-tabs">
+          <button type="button" class="nb-tab active" data-input="0">個別入力（列ごとに貼り付け）</button>
+          <button type="button" class="nb-tab" data-input="1">一括入力（タブ区切り）</button>
+        </div>
+        <div class="nb-page" data-input-page="0">
+          <div class="text-cols two">
+            <label>サンプルID（1行1件）<textarea id="ng-ids" rows="10" spellcheck="false"></textarea></label>
+            <label>Qubit濃度 ng/µL（1行1件）<textarea id="ng-conc" rows="10" spellcheck="false"></textarea></label>
+          </div>
+        </div>
+        <div class="nb-page hidden" data-input-page="1">
+          <label>タブ区切り: サンプルID\tQubit濃度(ng/µL)　※ヘッダ行は自動スキップ
+            <textarea id="ng-bulk" rows="10" spellcheck="false"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="btnbar">
+        <button type="button" id="ng-calc" class="primary">計算</button>
+        <button type="button" id="ng-clear">クリア</button>
+        <span class="vsep"></span>
+        <button type="button" id="ng-csv">CSV出力</button>
+        <button type="button" id="ng-html">HTMLレポート</button>
+        <button type="button" id="ng-clip">クリップボードにコピー</button>
+        <span class="vsep"></span>
+        <label class="chk"><input type="checkbox" id="ng-strip"> 8連チューブ色分け</label>
+        <span class="vsep"></span>
+        <button type="button" id="ng-demo" class="ghost">テストデータ入力</button>
+      </div>
+
+      <div class="tree-wrap"><table class="tree" id="ng-tree">
+        <thead><tr>
+          <th class="w-id">サンプルID</th><th>Qubit(ng/µL)</th>
+          <th>ターゲット(ng/µL)</th><th>希釈水量(µL)</th><th>半量(µL)</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+  </div>
+</div>
+
+<!-- ══ ステータスバー（Python版 stv 相当）══ -->
+<div class="statusbar" id="statusbar">準備完了</div>
+
+<!-- ══ 塩基長プリセット管理ダイアログ ══ -->
+<dialog id="dlg-preset">
+  <h2>塩基長プリセット管理</h2>
+  <p class="dlg-label">登録済みプリセット一覧</p>
+  <select id="preset-list" size="9"></select>
+  <fieldset class="lf">
+    <legend>追加 / 編集</legend>
+    <label>遺伝子名 / ラベル:<input type="text" id="preset-name"></label>
+    <label>塩基長 (bp):<input type="text" id="preset-bp" size="10"></label>
+  </fieldset>
+  <div class="dlg-btns">
+    <button type="button" id="preset-add">追加</button>
+    <button type="button" id="preset-update">上書き保存</button>
+    <button type="button" id="preset-delete">削除</button>
+    <button type="button" id="preset-close" class="right">閉じる</button>
+  </div>
+</dialog>
+
+<!-- ══ 出力列選択ダイアログ ══ -->
+<dialog id="dlg-columns">
+  <h2>出力列の選択</h2>
+  <p class="dlg-label">出力する列にチェックを入れてください:</p>
+  <div id="col-checks" class="col-checks"></div>
+  <hr>
+  <div class="dlg-btns wrap">
+    <button type="button" id="col-all-on">全選択</button>
+    <button type="button" id="col-all-off">全解除</button>
+  </div>
+  <div class="dlg-btns wrap">
+    <button type="button" id="col-save-def">デフォルトに設定</button>
+    <button type="button" id="col-restore-def">デフォルトに戻す</button>
+  </div>
+  <div class="dlg-btns center">
+    <button type="button" id="col-ok" class="primary">OK</button>
+    <button type="button" id="col-cancel">キャンセル</button>
+  </div>
+</dialog>
+
+<!-- ══ 汎用メッセージダイアログ（messagebox 相当）══ -->
+<dialog id="dlg-msg">
+  <h2 id="msg-title"></h2>
+  <p id="msg-body"></p>
+  <div class="dlg-btns center">
+    <button type="button" id="msg-ok" class="primary">OK</button>
+    <button type="button" id="msg-cancel" class="hidden">キャンセル</button>
+  </div>
+</dialog>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
