@@ -7,11 +7,12 @@ import assert from 'node:assert/strict';
 import {
   calcNmRecord, calcNgRecord, stripTag, fmtVal, pyRound, pyStr,
   parseNmBulk, parseNmSeparate, parseNgBulk,
+  PRESETS, presetLabel,
 } from '../src/calc.js';
 
 const TARGET_NM = 4.0, SAMPLE_UL = 10.0, MW = 660.0;
 
-test('nMモード: 希釈水量・半量（仕様書§12.1）', () => {
+test('nMモード: 希釈水量・半量', () => {
   const cases = [
     ['例', 447, 23.1, 185.7, 92.9],
     ['Ishigaki_soil_1_16S', 600, 51.0, 312.0, 156.0],
@@ -36,7 +37,7 @@ test('nMモード: ターゲット(pg/µL) と濃度不足', () => {
   assert.equal(low.warn, true);
 });
 
-test('ng/µLモード: 希釈水量・半量・濃度不足（仕様書§12.2）', () => {
+test('ng/µLモード: 希釈水量・半量・濃度不足', () => {
   const a = calcNgRecord('Sample_A', 10.0, 2.0, 10.0);
   assert.equal(a.water, 40.0); assert.equal(a.half, 20.0);
   const b = calcNgRecord('Sample_B', 5.0, 2.0, 10.0);
@@ -98,4 +99,20 @@ test('個別入力: 行数不一致・塩基長不足のエラーメッセージ
     /サンプルID \(2行\) と Qubit濃度 \(1行\) の行数が不一致。/);
   assert.throws(() => parseNmSeparate('S1', '', '51.0', null), /塩基長が不足（行1: S1）/);
   assert.throws(() => parseNmSeparate('', '', '', 600), /サンプルIDを入力してください。/);
+});
+
+test('固定プリセットの内容', () => {
+  assert.equal(PRESETS.length, 7);
+  assert.deepEqual(PRESETS.map((p) => p.primer),
+    ['341-805', 'F04/R22mod', 'TAReuk', '14F1/s15.3', '14F3/s17', 'SYM_VAL', 'MiFish']);
+  assert.deepEqual(PRESETS.map((p) => p.bp), [600, 501, 517, 262, 464, 452, 328]);
+  assert.equal(presetLabel(PRESETS[0]), '341-805 / 16S V3〜V4 (600 bp)');
+  assert.ok(PRESETS.every((p) => p.region && p.bp > 0));
+});
+
+test('プリセット選択時の計算（SYM_VAL 452 bp）', () => {
+  const r = calcNmRecord('sym', 452, 23.1, TARGET_NM, SAMPLE_UL, MW);
+  assert.equal(r.target_pg, 1193.28);
+  assert.equal(r.water, 183.6);
+  assert.equal(r.half, 91.8);
 });

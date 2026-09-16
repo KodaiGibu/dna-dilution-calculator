@@ -1,44 +1,38 @@
 /**
  * DNA希釈計算ツール v2.2 — UI レイヤー（Web移植版）
- * 移植元: dna_dilution_calculator.py の DNADilutionApp / GenePresetDialog / ColumnSelectDialog
+ * 移植元: dna_dilution_calculator.py の DNADilutionApp / ColumnSelectDialog
  *
  * Python版との対応:
- *   load_presets()/save_presets()         → localStorage: dna_dilution_presets
  *   load_col_defaults()/save_col_defaults() → localStorage: dna_dilution_col_defaults
- *   filedialog.asksaveasfilename()        → ブラウザのダウンロード
- *   messagebox                            → <dialog> によるモーダル
+ *   filedialog.asksaveasfilename()          → ブラウザのダウンロード
+ *   messagebox                              → <dialog> によるモーダル
+ *
+ * 【Web版での仕様変更】
+ *   プリセットは calc.js の PRESETS に定義した固定リスト（読み取り専用）とし、
+ *   Python版の GenePresetDialog（追加・上書き・削除）および
+ *   load_presets()/save_presets() による永続化は実装しない。
  */
 import {
-  APP_TITLE, DEFAULT_SAMPLE_UL, STRIP_SIZE, STRIP_HTML_COLORS, WARN_COLOR,
+  APP_TITLE, DEFAULT_SAMPLE_UL, PRESETS, presetLabel,
+  STRIP_SIZE, STRIP_HTML_COLORS, WARN_COLOR,
   calcNmRecord, calcNgRecord, stripTag, fmtVal, pyFloat, bpDisplay,
   parseNmSeparate, parseNmBulk, parseNgSeparate, parseNgBulk,
   nowStr, fileStamp,
 } from './calc.js';
 
 const $ = (id) => document.getElementById(id);
-const PRESET_KEY = 'dna_dilution_presets';
 const COL_KEY = 'dna_dilution_col_defaults';
 
 // ══ アプリ状態（Python版のインスタンス変数に対応）══
 const app = {
   mode: 'nm',
-  inputTab: { nm: 0, ng: 0 },   // nb_nm / nb_ng の index
-  presets: loadPresets(),        // self.presets
-  colDefaults: loadColDefaults(),// self.col_defaults
-  resultsNm: [],                 // self.results_nm
-  resultsNg: [],                 // self.results_ng
+  inputTab: { nm: 0, ng: 0 },    // nb_nm / nb_ng の index
+  colDefaults: loadColDefaults(), // self.col_defaults
+  resultsNm: [],                  // self.results_nm
+  resultsNg: [],                  // self.results_ng
 };
 
-// ══ 永続化（Python版の JSON ファイル I/O 相当）══
-function loadPresets() {
-  try {
-    const v = JSON.parse(localStorage.getItem(PRESET_KEY) || '[]');
-    return Array.isArray(v) ? v : [];
-  } catch { return []; }
-}
-function savePresets(presets) {
-  try { localStorage.setItem(PRESET_KEY, JSON.stringify(presets, null, 2)); } catch { /* pass */ }
-}
+// ══ 列デフォルトの永続化（Python版の JSON ファイル I/O 相当）══
 function loadColDefaults() {
   try {
     const v = JSON.parse(localStorage.getItem(COL_KEY) || '{}');
@@ -55,29 +49,8 @@ function showMessage(title, body) {
   return new Promise((resolve) => {
     $('msg-title').textContent = title;
     $('msg-body').textContent = body;
-    $('msg-cancel').classList.add('hidden');
-    const ok = () => { cleanup(); resolve(true); };
-    const cleanup = () => { $('msg-ok').removeEventListener('click', ok); dlgMsg.close(); };
+    const ok = () => { $('msg-ok').removeEventListener('click', ok); dlgMsg.close(); resolve(true); };
     $('msg-ok').addEventListener('click', ok);
-    dlgMsg.showModal();
-  });
-}
-function askYesNo(title, body) {
-  return new Promise((resolve) => {
-    $('msg-title').textContent = title;
-    $('msg-body').textContent = body;
-    const cancelBtn = $('msg-cancel');
-    cancelBtn.classList.remove('hidden');
-    const done = (v) => {
-      $('msg-ok').removeEventListener('click', yes);
-      cancelBtn.removeEventListener('click', no);
-      cancelBtn.classList.add('hidden');
-      dlgMsg.close(); resolve(v);
-    };
-    const yes = () => done(true);
-    const no = () => done(false);
-    $('msg-ok').addEventListener('click', yes);
-    cancelBtn.addEventListener('click', no);
     dlgMsg.showModal();
   });
 }
@@ -112,82 +85,27 @@ document.querySelectorAll('[data-input-nb]').forEach((nb) => {
   });
 });
 
-// ══ プリセット（_refresh_preset_combo_nm / _on_preset_nm）══
-function refreshPresetComboNm() {
+// ══ プリセット（固定リスト・読み取り専用）══
+// Python版 _refresh_preset_combo_nm 相当。起動時に一度だけ構築する。
+function buildPresetCombo() {
   const sel = $('nm-preset');
-  sel.innerHTML = '<option value="-1"></option>';
-  app.presets.forEach((p, i) => {
+  sel.innerHTML = '<option value="-1">（プリセットを選択）</option>';
+  PRESETS.forEach((p, i) => {
     const o = document.createElement('option');
     o.value = String(i);
-    o.textContent = `${p.name}  (${Math.trunc(p.bp)} bp)`;
+    o.textContent = presetLabel(p);
     sel.appendChild(o);
   });
   sel.value = '-1';
 }
+// Python版 _on_preset_nm 相当。選択で塩基長を自動入力し、共通塩基長を ON にする。
 $('nm-preset').addEventListener('change', (e) => {
   const idx = Number(e.target.value);
-  if (idx < 0 || idx >= app.presets.length) return;
-  $('nm-bp').value = bpDisplay(app.presets[idx].bp);
+  if (idx < 0 || idx >= PRESETS.length) return;
+  const p = PRESETS[idx];
+  $('nm-bp').value = bpDisplay(p.bp);
   $('nm-common').checked = true;
-});
-
-// ── GenePresetDialog 相当 ──
-const dlgPreset = $('dlg-preset');
-$('nm-preset-mgr').addEventListener('click', () => { refreshPresetList(); dlgPreset.showModal(); });
-$('preset-close').addEventListener('click', () => dlgPreset.close());
-
-function refreshPresetList() {
-  const lb = $('preset-list');
-  lb.innerHTML = '';
-  app.presets.forEach((p, i) => {
-    const o = document.createElement('option');
-    o.value = String(i);
-    o.textContent = `${p.name}  (${Math.trunc(p.bp)} bp)`;
-    lb.appendChild(o);
-  });
-  $('preset-name').value = '';
-  $('preset-bp').value = '';
-}
-$('preset-list').addEventListener('change', (e) => {   // _on_select
-  const p = app.presets[Number(e.target.value)];
-  if (!p) return;
-  $('preset-name').value = p.name;
-  $('preset-bp').value = bpDisplay(p.bp);
-});
-async function validatePreset() {                       // _validate
-  const name = $('preset-name').value.trim();
-  const bpS = $('preset-bp').value.trim();
-  if (!name) { await showMessage('入力エラー', '遺伝子名を入力してください。'); return null; }
-  const bp = Number(bpS);
-  if (!Number.isFinite(bp) || bp <= 0) {
-    await showMessage('入力エラー', '塩基長に正の数値を入力してください。'); return null;
-  }
-  return { name, bp };
-}
-function saveAndRefreshPresets() {                      // _save_and_refresh
-  savePresets(app.presets);
-  refreshPresetComboNm();
-  refreshPresetList();
-}
-$('preset-add').addEventListener('click', async () => {         // _add
-  const p = await validatePreset(); if (!p) return;
-  if (app.presets.some((x) => x.name === p.name && x.bp === p.bp)) {
-    await showMessage('重複', '同じプリセットが既に存在します。'); return;
-  }
-  app.presets.push(p); saveAndRefreshPresets();
-});
-$('preset-update').addEventListener('click', async () => {      // _update
-  const idx = Number($('preset-list').value);
-  if (!app.presets[idx]) { await showMessage('選択エラー', '編集するプリセットを選択してください。'); return; }
-  const p = await validatePreset(); if (!p) return;
-  app.presets[idx] = p; saveAndRefreshPresets();
-});
-$('preset-delete').addEventListener('click', async () => {      // _delete
-  const idx = Number($('preset-list').value);
-  if (!app.presets[idx]) { await showMessage('選択エラー', '削除するプリセットを選択してください。'); return; }
-  const p = app.presets[idx];
-  if (!await askYesNo('削除確認', `「${p.name} (${Math.trunc(p.bp)} bp)」を削除しますか？`)) return;
-  app.presets.splice(idx, 1); saveAndRefreshPresets();
+  setStatus(`プリセット適用: ${p.primer} / ${p.region} → 塩基長 ${bpDisplay(p.bp)} bp`);
 });
 
 // ══ nM 計算（_get_params_nm / _parse_nm / _calc_nm）══
@@ -554,5 +472,5 @@ $('ng-demo').addEventListener('click', () => {
 
 // ══ 初期化 ══
 document.title = APP_TITLE;
-refreshPresetComboNm();
+buildPresetCombo();
 setStatus('準備完了');

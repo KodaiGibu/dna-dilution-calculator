@@ -2,7 +2,7 @@
   "name": "dna-dilution-calculator-web",
   "version": "2.2.0",
   "private": true,
-  "description": "DNA希釈計算ツール（MiSeq用）v2.2 Web版 — dna_dilution_calculator.py (tkinter) の移植",
+  "description": "DNA希釈計算ツール（MiSeq用）v2.2 Web版 — dna_dilution_calculator.py (tkinter) の移植。プリマーセット別プリセットを固定搭載。",
   "type": "module",
   "scripts": {
     "test": "node --test tests/calc.test.mjs",

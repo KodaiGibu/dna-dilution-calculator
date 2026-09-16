@@ -18,18 +18,26 @@ export const STRIP_COLORS = ['#e3f2fd', '#fff9c4'];
 export const STRIP_HTML_COLORS = ['#e3f2fd', '#fff9c4'];
 export const WARN_COLOR = '#ffd6d6';
 
-// ══ 初期プリセット（プライマーセット別の平均増幅塩基長）══
-// Python版 load_presets() は空リストを返すが、Web版は初回起動時にこの一覧を投入する。
-// name: 「Primer set名称 (増幅遺伝子領域)」、bp: 平均増幅塩基長
-export const DEFAULT_PRESETS = [
-  { name: '341-805 (16S V3〜V4)', bp: 600 },
-  { name: 'F04/R22mod (18S V1)', bp: 501 },
-  { name: 'TAReuk (18S V4)', bp: 517 },
-  { name: '14F1/s15.3 (18S V6)', bp: 262 },
-  { name: '14F3/s17 (18S V6)', bp: 464 },
-  { name: 'SYM_VAL (褐虫藻ITS2)', bp: 452 },
-  { name: 'MiFish (mt12S)', bp: 328 },
+// ══ 固定プリセット（プライマーセット別の平均増幅塩基長）══
+// ユーザーによる追加・編集・削除は行わない読み取り専用の定数。
+// 項目を増減する場合はこの配列を直接編集する。
+//   primer : Primer set名称
+//   region : 増幅遺伝子領域
+//   bp     : 平均増幅塩基長
+export const PRESETS = [
+  { primer: '341-805', region: '16S V3〜V4', bp: 600 },
+  { primer: 'F04/R22mod', region: '18S V1', bp: 501 },
+  { primer: 'TAReuk', region: '18S V4', bp: 517 },
+  { primer: '14F1/s15.3', region: '18S V6', bp: 262 },
+  { primer: '14F3/s17', region: '18S V6', bp: 464 },
+  { primer: 'SYM_VAL', region: '褐虫藻ITS2', bp: 452 },
+  { primer: 'MiFish', region: 'mt12S', bp: 328 },
 ];
+
+/** プリセットの表示ラベル: 「341-805 / 16S V3〜V4 (600 bp)」 */
+export function presetLabel(p) {
+  return `${p.primer} / ${p.region} (${Math.trunc(p.bp)} bp)`;
+}
 
 // Python版 _parse_nm / _parse_ng の skip_headers
 const SKIP_HEADERS = new Set(['サンプルid', 'sampleid', 'sample_id', 'sample', 'id']);

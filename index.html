@@ -33,9 +33,9 @@
         </div>
         <div class="param-grid">
           <label class="chk"><input type="checkbox" id="nm-common" checked> 共通塩基長を使用:<input type="text" id="nm-bp" value="600" size="8"></label>
-          <label>プリセット:<select id="nm-preset"><option value="-1"></option></select></label>
-          <button type="button" id="nm-preset-mgr">プリセット管理</button>
+          <label>プリセット:<select id="nm-preset"><option value="-1">（プリセットを選択）</option></select></label>
         </div>
+        <p class="hint">プリセットを選ぶと平均増幅塩基長が自動入力されます（固定リスト・編集不可）。</p>
       </fieldset>
 
       <fieldset class="lf">
@@ -142,28 +142,27 @@
       </table></div>
     </section>
   </div>
+
+  <!-- ══ プリセット一覧（参照用・読み取り専用）══ -->
+  <details class="preset-ref">
+    <summary>プリセット一覧（Primer set / 増幅遺伝子領域 / 平均増幅塩基長）</summary>
+    <table class="ref-table">
+      <thead><tr><th>Primer set名称</th><th>増幅遺伝子領域</th><th>平均増幅塩基長</th></tr></thead>
+      <tbody>
+        <tr><td>341-805</td><td>16S V3〜V4</td><td>600 bp</td></tr>
+        <tr><td>F04/R22mod</td><td>18S V1</td><td>501 bp</td></tr>
+        <tr><td>TAReuk</td><td>18S V4</td><td>517 bp</td></tr>
+        <tr><td>14F1/s15.3</td><td>18S V6</td><td>262 bp</td></tr>
+        <tr><td>14F3/s17</td><td>18S V6</td><td>464 bp</td></tr>
+        <tr><td>SYM_VAL</td><td>褐虫藻ITS2</td><td>452 bp</td></tr>
+        <tr><td>MiFish</td><td>mt12S</td><td>328 bp</td></tr>
+      </tbody>
+    </table>
+  </details>
 </div>
 
 <!-- ══ ステータスバー（Python版 stv 相当）══ -->
 <div class="statusbar" id="statusbar">準備完了</div>
-
-<!-- ══ 塩基長プリセット管理ダイアログ ══ -->
-<dialog id="dlg-preset">
-  <h2>塩基長プリセット管理</h2>
-  <p class="dlg-label">登録済みプリセット一覧</p>
-  <select id="preset-list" size="9"></select>
-  <fieldset class="lf">
-    <legend>追加 / 編集</legend>
-    <label>遺伝子名 / ラベル:<input type="text" id="preset-name"></label>
-    <label>塩基長 (bp):<input type="text" id="preset-bp" size="10"></label>
-  </fieldset>
-  <div class="dlg-btns">
-    <button type="button" id="preset-add">追加</button>
-    <button type="button" id="preset-update">上書き保存</button>
-    <button type="button" id="preset-delete">削除</button>
-    <button type="button" id="preset-close" class="right">閉じる</button>
-  </div>
-</dialog>
 
 <!-- ══ 出力列選択ダイアログ ══ -->
 <dialog id="dlg-columns">
@@ -191,7 +190,6 @@
   <p id="msg-body"></p>
   <div class="dlg-btns center">
     <button type="button" id="msg-ok" class="primary">OK</button>
-    <button type="button" id="msg-cancel" class="hidden">キャンセル</button>
   </div>
 </dialog>
 
