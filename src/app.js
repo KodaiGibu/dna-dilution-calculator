@@ -3,13 +3,13 @@
  * 移植元: dna_dilution_calculator.py の DNADilutionApp / GenePresetDialog / ColumnSelectDialog
  *
  * Python版との対応:
- *   load_presets()/save_presets()           → localStorage: dna_dilution_presets
+ *   load_presets()/save_presets()         → localStorage: dna_dilution_presets
  *   load_col_defaults()/save_col_defaults() → localStorage: dna_dilution_col_defaults
- *   filedialog.asksaveasfilename()          → ブラウザのダウンロード
- *   messagebox                              → <dialog> によるモーダル
+ *   filedialog.asksaveasfilename()        → ブラウザのダウンロード
+ *   messagebox                            → <dialog> によるモーダル
  */
 import {
-  APP_TITLE, DEFAULT_SAMPLE_UL, DEFAULT_PRESETS, STRIP_SIZE, STRIP_HTML_COLORS, WARN_COLOR,
+  APP_TITLE, DEFAULT_SAMPLE_UL, STRIP_SIZE, STRIP_HTML_COLORS, WARN_COLOR,
   calcNmRecord, calcNgRecord, stripTag, fmtVal, pyFloat, bpDisplay,
   parseNmSeparate, parseNmBulk, parseNgSeparate, parseNgBulk,
   nowStr, fileStamp,
@@ -22,29 +22,19 @@ const COL_KEY = 'dna_dilution_col_defaults';
 // ══ アプリ状態（Python版のインスタンス変数に対応）══
 const app = {
   mode: 'nm',
-  inputTab: { nm: 0, ng: 0 },    // nb_nm / nb_ng の index
-  presets: loadPresets(),         // self.presets
-  colDefaults: loadColDefaults(), // self.col_defaults
-  resultsNm: [],                  // self.results_nm
-  resultsNg: [],                  // self.results_ng
+  inputTab: { nm: 0, ng: 0 },   // nb_nm / nb_ng の index
+  presets: loadPresets(),        // self.presets
+  colDefaults: loadColDefaults(),// self.col_defaults
+  resultsNm: [],                 // self.results_nm
+  resultsNg: [],                 // self.results_ng
 };
 
 // ══ 永続化（Python版の JSON ファイル I/O 相当）══
 function loadPresets() {
   try {
-    const raw = localStorage.getItem(PRESET_KEY);
-    // 初回起動（キーが存在しない）なら初期プリセットを投入して保存する。
-    // 既にユーザーが編集済み（空リストを含む）の場合はその内容を尊重する。
-    if (raw === null) {
-      const seeded = DEFAULT_PRESETS.map((p) => ({ ...p }));
-      localStorage.setItem(PRESET_KEY, JSON.stringify(seeded, null, 2));
-      return seeded;
-    }
-    const v = JSON.parse(raw);
+    const v = JSON.parse(localStorage.getItem(PRESET_KEY) || '[]');
     return Array.isArray(v) ? v : [];
-  } catch {
-    return DEFAULT_PRESETS.map((p) => ({ ...p }));
-  }
+  } catch { return []; }
 }
 function savePresets(presets) {
   try { localStorage.setItem(PRESET_KEY, JSON.stringify(presets, null, 2)); } catch { /* pass */ }
@@ -198,19 +188,6 @@ $('preset-delete').addEventListener('click', async () => {      // _delete
   const p = app.presets[idx];
   if (!await askYesNo('削除確認', `「${p.name} (${Math.trunc(p.bp)} bp)」を削除しますか？`)) return;
   app.presets.splice(idx, 1); saveAndRefreshPresets();
-});
-// 初期プリセットの再投入（Web版のみ。誤って削除した場合の復旧用）
-$('preset-restore').addEventListener('click', async () => {
-  if (!await askYesNo('初期プリセットの復元',
-    '初期プリセット（プライマーセット一覧）を再投入しますか？\n既存の同名・同bpのプリセットは重複追加しません。')) return;
-  let added = 0;
-  DEFAULT_PRESETS.forEach((d) => {
-    if (!app.presets.some((x) => x.name === d.name && x.bp === d.bp)) {
-      app.presets.push({ ...d }); added += 1;
-    }
-  });
-  saveAndRefreshPresets();
-  await showMessage('復元完了', `${added}件のプリセットを追加しました。`);
 });
 
 // ══ nM 計算（_get_params_nm / _parse_nm / _calc_nm）══
