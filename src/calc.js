@@ -18,6 +18,19 @@ export const STRIP_COLORS = ['#e3f2fd', '#fff9c4'];
 export const STRIP_HTML_COLORS = ['#e3f2fd', '#fff9c4'];
 export const WARN_COLOR = '#ffd6d6';
 
+// ══ 初期プリセット（プライマーセット別の平均増幅塩基長）══
+// Python版 load_presets() は空リストを返すが、Web版は初回起動時にこの一覧を投入する。
+// name: 「Primer set名称 (増幅遺伝子領域)」、bp: 平均増幅塩基長
+export const DEFAULT_PRESETS = [
+  { name: '341-805 (16S V3〜V4)', bp: 600 },
+  { name: 'F04/R22mod (18S V1)', bp: 501 },
+  { name: 'TAReuk (18S V4)', bp: 517 },
+  { name: '14F1/s15.3 (18S V6)', bp: 262 },
+  { name: '14F3/s17 (18S V6)', bp: 464 },
+  { name: 'SYM_VAL (褐虫藻ITS2)', bp: 452 },
+  { name: 'MiFish (mt12S)', bp: 328 },
+];
+
 // Python版 _parse_nm / _parse_ng の skip_headers
 const SKIP_HEADERS = new Set(['サンプルid', 'sampleid', 'sample_id', 'sample', 'id']);
 
