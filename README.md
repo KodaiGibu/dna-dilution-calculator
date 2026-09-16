@@ -1,57 +1,73 @@
-# DNA希釈計算ツール（MiSeq用）Web版
+# DNA希釈計算ツール（MiSeq用）v2.2 — Web版
 
-Qubit 測定濃度から、MiSeq シークエンシングに必要なモル濃度（nM）／質量濃度（ng/µL）へ希釈するための **RNase free 水の量** を自動計算する Web ツールです。
-デスクトップ版（Python/tkinter v2.2）の仕様書に準拠して再実装しました。
+`dna_dilution_calculator.py`（Python / tkinter 版 v2.2）を **ブラウザで動く静的 Web アプリ**として移植したものです。
+Qubit 測定濃度から、MiSeq シークエンシングに必要なモル濃度（nM）／質量濃度（ng/µL）に希釈するための **RNase free 水の量** を計算します。
 
-- **ビルド不要の静的サイト**（HTML + CSS + バニラ JavaScript、依存パッケージゼロ）
-- **完全クライアントサイド処理** — 入力データはサーバーに送信されません
-- Vercel に GitHub リポジトリをインポートするだけでデプロイ可能
+- ビルド不要の静的サイト（HTML + CSS + バニラ JavaScript、外部依存ゼロ）
+- 計算はすべてブラウザ内で完結し、入力データはサーバーに送信されません
+- GitHub リポジトリを Vercel にインポートするだけで公開できます
+
+## 移植の方針
+
+デスクトップ版と **同じ数値・同じ表示文字列** を返すことを最優先にしています。
+
+| Python 版 | Web 版での実装 |
+|---|---|
+| `round(x, n)`（偶数丸め） | `pyRound()` として偶数丸めを自前実装（`Math.round` は使わない） |
+| `str(float)`（`312.0` は `"312.0"`） | `pyStr()` で Python の文字列表現を再現 |
+| `_fmt_val()` / `_strip_tag()` | 同名ロジックをそのまま移植（`bp` は int 表示、`strip_group` は 1 始まり） |
+| `_parse_nm()` / `_parse_ng()` | 行数不一致・塩基長不足・ヘッダ行スキップの判定条件まで同一 |
+| `load_presets()` / `save_presets()` | `localStorage["dna_dilution_presets"]`（初期値は空リスト） |
+| `load_col_defaults()` / `save_col_defaults()` | `localStorage["dna_dilution_col_defaults"]` |
+| `filedialog.asksaveasfilename()` | ブラウザのダウンロード（ファイル名は `dilution_{mode}_{YYYYMMDD_HHMM}` で同一） |
+| `messagebox` | `<dialog>` によるモーダル（文言はそのまま） |
+| `webbrowser.open()`（HTML保存後） | 別タブでレポートをプレビュー |
+
+`GenePresetDialog`・`ColumnSelectDialog`・`DNADilutionApp` の各メソッドは、対応関係がわかるよう
+`src/app.js` 内にコメント（例: `// _refresh_tree_nm`）で明示しています。
 
 ## 機能
 
-| 機能 | 内容 |
-|---|---|
-| モル濃度希釈 (nM) | ターゲット nM・サンプル量・MW/bp・塩基長から希釈水量と半量を計算 |
-| 濃度希釈 (ng/µL) | ターゲット ng/µL・サンプル量から希釈水量と半量を計算 |
-| 入力方式 | 個別入力（列ごとの貼り付け）／一括入力（タブ・カンマ区切り、ヘッダ行自動スキップ） |
-| 塩基長プリセット | 遺伝子名 + bp の追加・編集・削除（localStorage に保存） |
-| 8連チューブ色分け | 8 行ごとに交互着色、濃度不足行は赤で優先表示 |
-| 出力 | CSV（UTF-8 BOM 付き）／印刷対応 HTML レポート／タブ区切りクリップボードコピー |
-| 出力列選択 | 列のチェック選択とモード別デフォルト保存（localStorage） |
+- **モル濃度希釈 (nM)**: ターゲット nM・サンプル量・MW per bp・共通/個別塩基長、塩基長プリセット
+- **濃度希釈 (ng/µL)**: ターゲット ng/µL・サンプル量
+- **入力**: 個別入力（列ごとに貼り付け）／一括入力（タブ・カンマ区切り、ヘッダ行は自動スキップ）
+- **塩基長プリセット管理**: 追加・上書き保存・削除（同名かつ同 bp の重複はブロック）
+- **8連チューブ色分け**: 8 行ごとに交互着色、濃度不足行は赤を優先
+- **出力**: CSV（UTF-8 BOM 付き）／HTML レポート（印刷時の背景色保持対応）／タブ区切りクリップボードコピー
+- **出力列選択**: 全選択・全解除・デフォルトに設定・デフォルトに戻す
 
 ## 計算式
 
 **モル濃度希釈 (nM)**
 
 ```
-ターゲット(pg/µL) = MW/bp × 塩基長(bp) × ターゲット(nM) ÷ 1000
-希釈水量 X (µL)   = サンプル量 × ( Qubit(ng/µL) × 1000 ÷ ターゲット(pg/µL) − 1 )
-半量              = 希釈水量(丸め前の生値) ÷ 2
+ターゲット (pg/µL) = MW_per_bp × 塩基長 × ターゲット(nM) ÷ 1000
+希釈水量 X (µL)    = サンプル量 × ( Qubit(ng/µL)×1000 ÷ ターゲット(pg/µL) − 1 )
+半量               = 希釈水量 ÷ 2
 ```
 
 **濃度希釈 (ng/µL)**
 
 ```
-希釈水量 X (µL) = サンプル量 × ( Qubit(ng/µL) ÷ ターゲット(ng/µL) − 1 )
-半量            = 希釈水量(丸め前の生値) ÷ 2
+希釈水量 X (µL) = サンプル量 × ( Qubit濃度(ng/µL) ÷ ターゲット(ng/µL) − 1 )
+半量            = 希釈水量 ÷ 2
 ```
 
-濃度不足（Qubit ≤ ターゲット）の場合は `濃度不足` / `―` を表示します。
-丸めはデスクトップ版（Python `round()`）と結果を一致させるため **銀行丸め（round-half-to-even）** を実装しています（`roundHalfEven()`）。
+`Qubit ≤ ターゲット` の場合は `濃度不足` / `―` を表示します。
 
 ## ディレクトリ構成
 
 ```
 .
-├── index.html              # UI（単一ページ）
+├── index.html              # UI（モード2タブ + 入力2タブ + 結果表 + ステータスバー）
 ├── assets/
 │   ├── styles.css
 │   └── favicon.svg
 ├── src/
-│   ├── calc.js             # 計算コア（純粋関数・依存なし・テスト対象）
-│   └── app.js              # UI・プリセット・列選択・エクスポート
+│   ├── calc.js             # 計算コア（Python 互換の丸め・文字列化・パース）
+│   └── app.js              # UI・プリセット・列選択・CSV/HTML/クリップボード出力
 ├── tests/
-│   └── calc.test.mjs       # 仕様書 §12 テストケース
+│   └── calc.test.mjs       # Python 版との一致検証
 ├── .github/workflows/test.yml
 ├── vercel.json             # 静的デプロイ設定（ビルドなし）
 ├── package.json
@@ -59,60 +75,67 @@ Qubit 測定濃度から、MiSeq シークエンシングに必要なモル濃�
 └── LICENSE
 ```
 
-## ローカルでの動作確認
+## ローカルでの確認
 
-ES Modules を使用しているため、`index.html` をファイル直接オープン（`file://`）ではなくローカルサーバー経由で開いてください。
+ES Modules を使うため、`file://` で直接開かずローカルサーバー経由で開いてください。
 
 ```bash
-npm run dev          # npx serve . （http://localhost:3000）
+npm run dev            # npx serve .  → http://localhost:3000
 # または
 python -m http.server 8000
 ```
 
-テストの実行（Node.js 18 以上）:
+テスト（Node.js 18 以上）:
 
 ```bash
 npm test
 ```
 
-## GitHub → Vercel へのデプロイ手順
+## GitHub → Vercel へのデプロイ
 
 ```bash
 cd dna-dilution-calculator-web
 git init
 git add .
-git commit -m "feat: DNA希釈計算ツール Web版 v2.2"
+git commit -m "feat: DNA希釈計算ツール v2.2 Web版（tkinter版からの移植）"
 git branch -M main
 git remote add origin https://github.com/<ユーザー名>/dna-dilution-calculator-web.git
 git push -u origin main
 ```
 
 1. [vercel.com](https://vercel.com) にログイン → **Add New… → Project**
-2. 対象の GitHub リポジトリを **Import**
+2. 対象リポジトリを **Import**
 3. Framework Preset は **Other**（`vercel.json` によりビルドは実行されません）
 4. Root Directory はリポジトリ直下のまま → **Deploy**
-5. 数十秒で `https://<プロジェクト名>.vercel.app` に公開されます
 
-以降は `main` への push が自動で本番反映され、プルリクエストごとにプレビュー URL が発行されます。
+以降は `main` への push で自動的に本番へ反映され、プルリクエストごとにプレビュー URL が発行されます。
 
-## 検証済みテストケース
+## 検証済みの一致テスト
 
-| モード | 入力 | 期待値（希釈水量 / 半量） |
+`npm test` で以下を検証しています（Python 実行結果と突き合わせ済み）。
+
+| モード | 入力 | 希釈水量 / 半量 |
 |---|---|---|
-| nM | 447 bp, 23.1 ng/µL, 4 nM, 10 µL | 185.7 / 92.9 |
+| nM | 447 bp, 23.1 ng/µL（4 nM, 10 µL, MW 660） | 185.7 / 92.9 |
 | nM | 600 bp, 51.0 ng/µL | 312.0 / 156.0 |
 | nM | 600 bp, 52.8 ng/µL | 323.3 / 161.7 |
-| ng/µL | 10.0 ng/µL → 2.0 ng/µL | 40.0 / 20.0 |
-| ng/µL | 1.5 ng/µL → 2.0 ng/µL | 濃度不足 / ― |
+| nM | 600 bp, 42.2 / 47.2 / 43.6 ng/µL | 256.4 / 288.0 / 265.3 |
+| ng/µL | 10.0 → 2.0 ng/µL | 40.0 / 20.0 |
+| ng/µL | 5.0 → 2.0 ng/µL | 15.0 / 7.5 |
+| ng/µL | 1.5 → 2.0 ng/µL | 濃度不足 / ― |
+
+あわせて、偶数丸め（`round(2.5)==2`, `round(3.5)==4`）、`str(float)` の表示（`1584.0`）、
+`_strip_tag` / `_fmt_val` の挙動、一括入力のヘッダスキップ、エラーメッセージ文言も検証しています。
 
 ## デスクトップ版との差異
 
-| 項目 | デスクトップ版 | Web 版 |
+| 項目 | Python/tkinter 版 | Web 版 |
 |---|---|---|
-| 設定の保存先 | JSON ファイル（EXE と同フォルダ） | ブラウザの localStorage |
-| ファイル出力 | 保存ダイアログ | ブラウザのダウンロード |
-| アイコン | .ico | SVG favicon |
+| 設定の保存先 | 実行ファイルと同じフォルダの JSON | ブラウザの localStorage |
+| ファイル出力 | 保存ダイアログで任意の場所へ | ブラウザのダウンロードフォルダ |
+| アイコン | `dna_dilution_icon.ico` | `assets/favicon.svg` |
 | 実行環境 | Windows（EXE / Python 3.9+） | 任意のモダンブラウザ |
+| 追加機能 | — | 「テストデータ入力」ボタン（動作確認用） |
 
 ## ライセンス
 
